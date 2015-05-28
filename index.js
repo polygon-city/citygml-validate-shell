@@ -14,8 +14,6 @@ var citygmlBoundaries = require("citygml-boundaries");
 var citygmlPoints = require("citygml-points");
 var points3dto2d = require("points-3d-to-2d");
 
-module.exports = citygmlValidateShell;
-
 // Input: [polygon, polygon, ...]
 var citygmlValidateShell = function(shell, callback) {
   // Validate shell
@@ -631,3 +629,5 @@ var lineIntersectsPlane = function(plane, line) {
 
   return result;
 };
+
+module.exports = citygmlValidateShell;
