@@ -42,7 +42,7 @@ var GE_S_TOO_FEW_POLYGONS = function(shell) {
     if (shell.length > 3) {
       callback(null);
     } else {
-      callback(null, [new Error("GE_S_TOO_FEW_POLYGONS: A shell should have at least 4 polygons"), shell.length]]);
+      callback(null, [new Error("GE_S_TOO_FEW_POLYGONS: A shell should have at least 4 polygons"), shell.length]);
     }
   };
 };
