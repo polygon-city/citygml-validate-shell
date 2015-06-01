@@ -17,6 +17,7 @@ var points3dto2d = require("points-3d-to-2d");
 // Input: [polygon, polygon, ...]
 var citygmlValidateShell = function(shell, callback) {
   // Validate shell
+  // Validation errors are stored within results array
   async.series([
     GE_S_TOO_FEW_POLYGONS(shell),
     GE_S_NOT_CLOSED(shell),
@@ -41,7 +42,7 @@ var GE_S_TOO_FEW_POLYGONS = function(shell) {
     if (shell.length > 3) {
       callback(null);
     } else {
-      callback(new Error("GE_S_TOO_FEW_POLYGONS: A shell should have at least 4 polygons"), shell.length);
+      callback(null, [new Error("GE_S_TOO_FEW_POLYGONS: A shell should have at least 4 polygons"), shell.length]]);
     }
   };
 };
@@ -72,7 +73,7 @@ var GE_S_NOT_CLOSED = function(shell) {
     if (holes.length === 0) {
       callback(null);
     } else {
-      callback(new Error("GE_S_NOT_CLOSED: The shell must be watertight (ie. no holes)"), holes);
+      callback(null, [new Error("GE_S_NOT_CLOSED: The shell must be watertight (ie. no holes)"), holes]);
     }
   };
 };
@@ -168,7 +169,7 @@ var GE_S_NON_MANIFOLD_VERTEX = function(shell) {
     if (badVertices.length === 0) {
       callback(null)
     } else {
-      callback(new Error("GE_S_NON_MANIFOLD_VERTEX: Polygons shared by a vertex must also share an edge"), badVertices);
+      callback(null, [new Error("GE_S_NON_MANIFOLD_VERTEX: Polygons shared by a vertex must also share an edge"), badVertices]);
     }
   };
 };
@@ -194,7 +195,7 @@ var GE_S_NON_MANIFOLD_EDGE = function(shell) {
     if (nonManifolds.length === 0) {
       callback(null);
     } else {
-      callback(new Error("GE_S_NON_MANIFOLD_EDGE: Each edge of a shell should have exactly 2 incident polygons"), nonManifolds);
+      callback(null, [new Error("GE_S_NON_MANIFOLD_EDGE: Each edge of a shell should have exactly 2 incident polygons"), nonManifolds]);
     }
   };
 };
@@ -230,7 +231,7 @@ var GE_S_MULTIPLE_CONNECTED_COMPONENTS = function(shell) {
     if (groups.length === 1) {
       callback(null);
     } else {
-      callback(new Error("GE_S_MULTIPLE_CONNECTED_COMPONENTS: All polygons must be connected to the shell"), groups);
+      callback(null, [new Error("GE_S_MULTIPLE_CONNECTED_COMPONENTS: All polygons must be connected to the shell"), groups]);
     }
   };
 };
@@ -288,7 +289,7 @@ var GE_S_SELF_INTERSECTION = function(shell) {
     if (intersections.length === 0) {
       callback(null);
     } else {
-      callback(new Error("GE_S_SELF_INTERSECTION: Shell must not intersect itself"), intersections);
+      callback(null, [new Error("GE_S_SELF_INTERSECTION: Shell must not intersect itself"), intersections]);
     }
   };
 };
@@ -405,9 +406,9 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
       });
 
       if (insideOut) {
-        callback(new Error("GE_S_ALL_POLYGONS_WRONG_ORIENTATION: All the polygons have the wrong orientation"), checkWinding);
+        callback(null, [new Error("GE_S_ALL_POLYGONS_WRONG_ORIENTATION: All the polygons have the wrong orientation"), checkWinding]);
       } else {
-        callback(new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), outerPolygon);
+        callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), outerPolygon]);
       }
 
       return;
@@ -436,7 +437,7 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     if (flipped.length === 0) {
       callback(null);
     } else {
-      callback(new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), flipped);
+      callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), flipped]);
     }
   };
 };
