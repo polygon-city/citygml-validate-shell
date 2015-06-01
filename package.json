@@ -1,6 +1,6 @@
 {
   "name": "citygml-validate-shell",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "Validate a CityGML shell against the QIE suite",
   "main": "index.js",
   "scripts": {
@@ -28,10 +28,10 @@
   "homepage": "https://github.com/polygon-city/citygml-validate-shell",
   "dependencies": {
     "async": "^1.0.0",
-    "citygml-boundaries": "^0.1.0",
-    "citygml-points": "^0.1.0",
+    "citygml-boundaries": "^0.1.1",
+    "citygml-points": "^0.1.1",
     "lodash": "^3.9.3",
-    "points-3d-to-2d": "^0.1.0",
+    "points-3d-to-2d": "^0.1.1",
     "polygon": "^1.0.1"
   }
 }
