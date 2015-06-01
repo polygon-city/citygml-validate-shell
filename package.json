@@ -1,6 +1,6 @@
 {
   "name": "citygml-validate-shell",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Validate a CityGML shell against the QIE suite",
   "main": "index.js",
   "scripts": {

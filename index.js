@@ -111,7 +111,10 @@ var GE_S_NON_MANIFOLD_VERTEX = function(shell) {
             polygonsByVertex[pointId] = [];
           }
 
-          polygonsByVertex[pointId].push(polygonIndex);
+          // Skip polygon if added already
+          if (_.indexOf(polygonsByVertex[pointId], polygonIndex) < 0) {
+            polygonsByVertex[pointId].push(polygonIndex);
+          }
         });
       });
     });
@@ -119,6 +122,12 @@ var GE_S_NON_MANIFOLD_VERTEX = function(shell) {
     var badVertices = [];
 
     _.each(polygonsByVertex, function(polygonIndexes, vertexId) {
+      // Skip if only one polygon is using this vertex
+      // This shouldn't fail here but will fail GE_S_NOT_CLOSED
+      if (polygonIndexes.length < 2) {
+        return;
+      }
+
       var indexesCopy = _.clone(polygonIndexes);
 
       var polygonIndex;
@@ -128,6 +137,7 @@ var GE_S_NON_MANIFOLD_VERTEX = function(shell) {
 
       var polygonEdgeIdSplit;
       var checkEdgeIdSplit;
+
 
       while (indexesCopy.length > 0) {
         polygonIndex = indexesCopy.shift();
