@@ -436,6 +436,8 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
       if (insideOut) {
         callback(null, [new Error("GE_S_ALL_POLYGONS_WRONG_ORIENTATION: All the polygons have the wrong orientation"), indexes]);
       } else {
+        // TODO: This needs to return all the other polygons that are flipped
+        // too, otherwise it only returns the first one but there might be more
         callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), outerPolygonIndex]);
       }
 
@@ -454,6 +456,8 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
 
     // If an edge count is anything other than 2 then there has to be a polygon
     // that has opposite winding to those adjacent to it (ie. flipped normal)
+    // TODO: This isn't robust enough – it fails when polygons aren't properly
+    // connected, which aren't valid either but aren't part of this test
     var flipped = [];
 
     _.each(edgeCounts, function(count, edgeId) {
