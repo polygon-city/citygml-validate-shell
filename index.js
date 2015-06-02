@@ -28,7 +28,12 @@ var citygmlValidateShell = function(shell, callback) {
     GE_S_POLYGON_WRONG_ORIENTATION(shell)
     // GE_S_ALL_POLYGONS_WRONG_ORIENTATION(shell)
   ], function(err, results) {
-    callback(err, results);
+    // Remove passes (undefined)
+    var failures = _.filter(results, function(result) {
+      return (result && result[0]);
+    });
+
+    callback(err, failures);
   });
 };
 
@@ -385,17 +390,19 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
 
     var maxNormalZ;
     var outerPolygon;
+    var outerPolygonIndex;
     var outerPolygonNormal;
 
     // Pick outer polygon with the largest absolute Z normal as this will always     // be on top after the previous filters in a valid solid (has the shallowest
     // angle) and will filter out overhanging polygons
-    _.each(topPolygons, function(oPolygon) {
+    _.each(topPolygons, function(oPolygon, oPolygonIndex) {
       var normal = normalUnit(oPolygon[0][0], oPolygon[0][1], oPolygon[0][2]);
       var absNormalZ = Math.abs(normal[2]);
 
       if (maxNormalZ === undefined || absNormalZ > maxNormalZ) {
         maxNormalZ = absNormalZ;
         outerPolygon = oPolygon;
+        outerPolygonIndex = oPolygonIndex;
         outerPolygonNormal = normal;
       }
     });
@@ -409,12 +416,16 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     if (outerPolygonNormal[2] < 0) {
       var insideOut = true;
 
+      var indexes = [];
+
       // Fail GE_S_ALL_POLYGONS_WRONG_ORIENTATION if all polygons have the same,
       // incorrect winding
-      _.each(polygonPoints, function(ePoints) {
+      _.each(polygonPoints, function(ePoints, eIndex) {
         var ePoints2d = points3dto2d(ePoints, false);
         var ePolygon = polygonjs(ePoints2d.points);
         var eWinding = ePolygon.winding();
+
+        indexes.push(eIndex);
 
         if (eWinding != checkWinding) {
           insideOut = false;
@@ -423,9 +434,9 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
       });
 
       if (insideOut) {
-        callback(null, [new Error("GE_S_ALL_POLYGONS_WRONG_ORIENTATION: All the polygons have the wrong orientation"), checkWinding]);
+        callback(null, [new Error("GE_S_ALL_POLYGONS_WRONG_ORIENTATION: All the polygons have the wrong orientation"), indexes]);
       } else {
-        callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), outerPolygon]);
+        callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), outerPolygonIndex]);
       }
 
       return;
@@ -447,7 +458,18 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
 
     _.each(edgeCounts, function(count, edgeId) {
       if (count !== 2) {
-        flipped.push(edges[edgeId]);
+        // flipped.push(edges[edgeId]);
+
+        var polyIndex = edges[edgeId][2];
+        var polyWinding = polygonWindings[polyIndex];
+
+        // Compare windings (different === failure)
+        if (polyWinding !== checkWinding) {
+          if (!_.contains(flipped, polyIndex)) {
+            // Add polygon index to failures
+            flipped.push(polyIndex);
+          }
+        }
       }
     });
 
@@ -457,22 +479,21 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     // We can't just check winding *or* edges as it's also possible for all
     // polygons to be wound correctly yet not share edges properly.
     if (flipped.length === 0) {
-      var wrongWinding = false;
-
-      _.each(polygonWindings, function(winding) {
+      _.each(polygonWindings, function(winding, index) {
         if (winding !== checkWinding) {
-          wrongWinding = true;
+          if (!_.contains(flipped, index)) {
+            flipped.push(index);
+          }
         }
       });
 
-      if (!wrongWinding) {
+      if (flipped.length === 0) {
         callback(null);
-      } else {
-        callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), polygonWindings]);
+        return;
       }
-    } else {
-      callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), flipped]);
     }
+
+    callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), flipped]);
   };
 };
 
