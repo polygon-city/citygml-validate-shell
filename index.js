@@ -65,7 +65,7 @@ var GE_S_NOT_CLOSED = function(shell) {
 
   return function(callback) {
     var edges = findEdges(shell);
-    var edgeCounts = countEdges(edges);
+    var edgeCounts = countMatchingEdges(edges);
 
     var holes = [];
 
@@ -197,7 +197,7 @@ var GE_S_NON_MANIFOLD_EDGE = function(shell) {
 
   return function(callback) {
     var edges = findEdges(shell);
-    var edgeCounts = countEdges(edges);
+    var edgeCounts = countMatchingEdges(edges);
 
     var nonManifolds = [];
 
@@ -288,7 +288,7 @@ var GE_S_SELF_INTERSECTION = function(shell) {
 
       _.each(edges, function(edge) {
         // Ignore edges of the same polygon
-        if (edge[2] === polygonIndex) {
+        if (_.contains(edge[2], polygonIndex)) {
           return;
         }
 
@@ -452,28 +452,53 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
 
     // Find edges
     var edges = findEdges(shell);
-    var edgeCounts = countEdges(edges);
+    var edgesByPolygon = findEdgesByPolygon(edges);
+    var edgeCounts = countMatchingEdges(edges);
 
     // If an edge count is anything other than 2 then there has to be a polygon
     // that has opposite winding to those adjacent to it (ie. flipped normal)
+    //
     // TODO: This isn't robust enough – it fails when polygons aren't properly
     // connected, which aren't valid either but aren't part of this test
+
     var flipped = [];
 
     _.each(edgeCounts, function(count, edgeId) {
       if (count !== 2) {
-        // flipped.push(edges[edgeId]);
+        // At this point we know edges[edgeId][2] contains the indexes for all
+        // the polygons which have incorrectly-matched edges
+        _.each(edges[edgeId][2], function(pIndex) {
+          var pEdges = edgesByPolygon[pIndex];
 
-        var polyIndex = edges[edgeId][2];
-        var polyWinding = polygonWindings[polyIndex];
+          var pFlipped = true;
 
-        // Compare windings (different === failure)
-        if (polyWinding !== checkWinding) {
-          if (!_.contains(flipped, polyIndex)) {
-            // Add polygon index to failures
-            flipped.push(polyIndex);
+          // If all edges have a count of 1 then this polygon is flipped,
+          // otherwise it's valid as it shares edges with other polygons
+          _.each(pEdges, function(pEdge) {
+            if (edgeCounts[pEdge] === 2) {
+              pFlipped = false;
+            }
+          });
+
+          if (pFlipped) {
+            if (!_.contains(flipped, pIndex)) {
+              flipped.push(pIndex);
+            }
           }
-        }
+
+          // REMOVED: Winding checks can't be relied on – winding can be either
+          // the same or opposite depending on how 2D projection happens
+          //
+          // var polyWinding = polygonWindings[pIndex];
+          //
+          // // Compare windings (different === failure)
+          // if (polyWinding !== checkWinding) {
+          //   if (!_.contains(flipped, pIndex)) {
+          //     // Add polygon index to failures
+          //     flipped.push(pIndex);
+          //   }
+          // }
+        });
       }
     });
 
@@ -523,7 +548,14 @@ var findEdges = function(shell) {
 
         // Serialise edge
         var edgeId = prevPoint.toString() + ":" + point.toString();
-        edges[edgeId] = [prevPoint, point, polygonIndex];
+
+        // First time create new edge definition, second time only add polygon
+        // index to edge
+        if (!edges[edgeId]) {
+          edges[edgeId] = [prevPoint, point, [polygonIndex]];
+        } else {
+          edges[edgeId][2].push(polygonIndex);
+        }
 
         prevPoint = point;
       });
@@ -533,8 +565,7 @@ var findEdges = function(shell) {
   return edges;
 };
 
-// IMPL: Is vertex order always reversed for shared edges? Should we check that here?
-var countEdges = function(edges) {
+var countMatchingEdges = function(edges) {
   var edgeCounts = {};
 
   _.each(edges, function(edge, edgeId) {
@@ -566,11 +597,13 @@ var findEdgesByPolygon = function(edges) {
   var edgesByPolygon = {};
 
   _.each(edges, function(edge, edgeId) {
-    if (!edgesByPolygon[edge[2]]) {
-      edgesByPolygon[edge[2]] = [];
-    }
+    _.each(edge[2], function(pIndex) {
+      if (!edgesByPolygon[pIndex]) {
+        edgesByPolygon[pIndex] = [];
+      }
 
-    edgesByPolygon[edge[2]].push(edgeId);
+      edgesByPolygon[pIndex].push(edgeId);
+    });
   });
 
   return edgesByPolygon;
