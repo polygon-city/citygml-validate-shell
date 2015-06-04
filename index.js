@@ -5,6 +5,7 @@
 // See: https://github.com/tudelft3d/CityGML-QIE-3Dvalidation/blob/master/errors/errors.md#shell
 
 // TODO: Test against a CityGML dataset containing valid and invalid geometry
+// TODO: Support inner polygons
 
 var _ = require("lodash");
 var async = require("async");
@@ -64,7 +65,18 @@ var GE_S_NOT_CLOSED = function(shell) {
   // Example: https://github.com/tudelft3d/CityGML-QIE-3Dvalidation/raw/master/errors/figs/302.png
 
   return function(callback) {
-    var edges = findEdges(shell);
+    var polygonPoints = [];
+
+    _.each(shell, function(polygonXML) {
+      var boundaries = citygmlBoundaries(polygonXML);
+
+      _.each(boundaries.exterior.concat(boundaries.interior), function(boundary) {
+        var bPoints = citygmlPoints(boundary);
+        polygonPoints.push(bPoints);
+      });
+    });
+
+    var edges = findEdges(polygonPoints);
     var edgeCounts = countMatchingEdges(edges);
 
     var holes = [];
@@ -94,21 +106,23 @@ var GE_S_NON_MANIFOLD_VERTEX = function(shell) {
   // Example: https://github.com/tudelft3d/CityGML-QIE-3Dvalidation/raw/master/errors/figs/303.png
 
   return function(callback) {
-    var edges = findEdges(shell);
+    var polygonPoints = [];
+
+    _.each(shell, function(polygonXML) {
+      var boundaries = citygmlBoundaries(polygonXML);
+
+      _.each(boundaries.exterior.concat(boundaries.interior), function(boundary) {
+        var bPoints = citygmlPoints(boundary);
+        polygonPoints.push(bPoints);
+      });
+    });
+
+    var edges = findEdges(polygonPoints);
 
     var edgesByPolygon = findEdgesByPolygon(edges);
     var polygonsByVertex = {};
 
-    _.each(shell, function(polygonXML, polygonIndex) {
-      var boundaries = citygmlBoundaries(polygonXML);
-
-      var checkRings = boundaries.exterior.concat(boundaries.interior);
-      var checkRingXML;
-      var checkRingPoints;
-
-      _.each(checkRings, function(checkRingXML, ringIndex) {
-        checkRingPoints = citygmlPoints(checkRingXML);
-
+      _.each(polygonPoints, function(checkRingPoints, polygonIndex) {
         _.each(checkRingPoints, function(point) {
           var pointId = point.toString();
 
@@ -122,7 +136,7 @@ var GE_S_NON_MANIFOLD_VERTEX = function(shell) {
           }
         });
       });
-    });
+    // });
 
     var badVertices = [];
 
@@ -196,7 +210,18 @@ var GE_S_NON_MANIFOLD_EDGE = function(shell) {
   // Example: https://github.com/tudelft3d/CityGML-QIE-3Dvalidation/raw/master/errors/figs/304.png
 
   return function(callback) {
-    var edges = findEdges(shell);
+    var polygonPoints = [];
+
+    _.each(shell, function(polygonXML) {
+      var boundaries = citygmlBoundaries(polygonXML);
+
+      _.each(boundaries.exterior.concat(boundaries.interior), function(boundary) {
+        var bPoints = citygmlPoints(boundary);
+        polygonPoints.push(bPoints);
+      });
+    });
+
+    var edges = findEdges(polygonPoints);
     var edgeCounts = countMatchingEdges(edges);
 
     var nonManifolds = [];
@@ -223,7 +248,18 @@ var GE_S_MULTIPLE_CONNECTED_COMPONENTS = function(shell) {
   // Example: https://github.com/tudelft3d/CityGML-QIE-3Dvalidation/raw/master/errors/figs/305.png
 
   return function(callback) {
-    var edges = findEdges(shell);
+    var polygonPoints = [];
+
+    _.each(shell, function(polygonXML) {
+      var boundaries = citygmlBoundaries(polygonXML);
+
+      _.each(boundaries.exterior.concat(boundaries.interior), function(boundary) {
+        var bPoints = citygmlPoints(boundary);
+        polygonPoints.push(bPoints);
+      });
+    });
+
+    var edges = findEdges(polygonPoints);
 
     // List of edges as strings: [["0,0,0", "0,1,0"], [...]]
     var edgeList = _.map(edges, function(edge) {
@@ -266,14 +302,26 @@ var GE_S_SELF_INTERSECTION = function(shell) {
   // Example: https://github.com/tudelft3d/CityGML-QIE-3Dvalidation/raw/master/errors/figs/306.png
 
   return function(callback) {
-    var checkPolygons = _.clone(shell);
-    var edges = findEdges(shell);
+    var polygonPoints = [];
+
+    _.each(shell, function(polygonXML) {
+      var boundaries = citygmlBoundaries(polygonXML);
+
+      _.each(boundaries.exterior.concat(boundaries.interior), function(boundary) {
+        var bPoints = citygmlPoints(boundary);
+        polygonPoints.push(bPoints);
+      });
+    });
+
+    // var checkPolygons = _.clone(shell);
+    // var edges = findEdges(shell);
+    var edges = findEdges(polygonPoints);
 
     var intersections = [];
 
-    _.each(shell, function(polygonXML, polygonIndex) {
-      var checkBoundaries = citygmlBoundaries(polygonXML);
-      var checkRingPoints = citygmlPoints(checkBoundaries.exterior[0]);
+    _.each(polygonPoints, function(checkRingPoints, polygonIndex) {
+      // var checkBoundaries = citygmlBoundaries(polygonXML);
+      // var checkRingPoints = citygmlPoints(checkBoundaries.exterior[0]);
 
       // TODO: Should be abstracted into a Plane module as it's also used in
       // GE_P_NON_PLANAR_POLYGON_DISTANCE_PLANE
@@ -338,13 +386,15 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
   // - Pyramid /\
   // - Wedge on top \ /
   return function(callback) {
+    var polygonIndexes = [];
     var polygonPoints = [];
     var polygonWindings = [];
 
-    _.each(shell, function(polygonXML) {
+    _.each(shell, function(polygonXML, polygonIndex) {
       var boundaries = citygmlBoundaries(polygonXML);
       var exteriorPoints = citygmlPoints(boundaries.exterior[0]);
 
+      polygonIndexes.push(polygonIndex);
       polygonPoints.push(exteriorPoints);
     });
 
@@ -393,6 +443,9 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     var outerPolygonIndex;
     var outerPolygonNormal;
 
+    var flipped = [];
+    var outerFlipped = false;
+
     // Pick outer polygon with the largest absolute Z normal as this will always     // be on top after the previous filters in a valid solid (has the shallowest
     // angle) and will filter out overhanging polygons
     _.each(topPolygons, function(oPolygon, oPolygonIndex) {
@@ -402,7 +455,7 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
       if (maxNormalZ === undefined || absNormalZ > maxNormalZ) {
         maxNormalZ = absNormalZ;
         outerPolygon = oPolygon;
-        outerPolygonIndex = oPolygonIndex;
+        outerPolygonIndex = Number(oPolygonIndex);
         outerPolygonNormal = normal;
       }
     });
@@ -435,13 +488,12 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
 
       if (insideOut) {
         callback(null, [new Error("GE_S_ALL_POLYGONS_WRONG_ORIENTATION: All the polygons have the wrong orientation"), indexes]);
+        return;
       } else {
-        // TODO: This needs to return all the other polygons that are flipped
-        // too, otherwise it only returns the first one but there might be more
-        callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), outerPolygonIndex]);
+        // This will cause only flipped polygons to be valid, as they match up
+        // with the flipped outer polygon.
+        outerFlipped = true;
       }
-
-      return;
     }
 
     // This polygon is pointing outward and can be used to walk the rest of
@@ -451,7 +503,7 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     // the solid is manifold
 
     // Find edges
-    var edges = findEdges(shell);
+    var edges = findEdges(polygonPoints);
     var edgesByPolygon = findEdgesByPolygon(edges);
     var edgeCounts = countMatchingEdges(edges);
 
@@ -460,8 +512,6 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     //
     // TODO: This isn't robust enough – it fails when polygons aren't properly
     // connected, which aren't valid either but aren't part of this test
-
-    var flipped = [];
 
     _.each(edgeCounts, function(count, edgeId) {
       if (count !== 2) {
@@ -522,45 +572,58 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
       }
     }
 
+    // If outer polygon is flipped then everything in the flipped array is
+    // actually valid (as it was compared against a flipped polygon). We can
+    // diff the flipped array with the original indexes to get the actually
+    // flipped polygons.
+    if (outerFlipped) {
+      flipped = _.difference(polygonIndexes, flipped);
+    }
+
     callback(null, [new Error("GE_S_POLYGON_WRONG_ORIENTATION: When an exterior polygon is viewed from outside the shell the points must be ordered counterclockwise"), flipped]);
   };
 };
 
-var findEdges = function(shell) {
+var findEdges = function(polygons) {
   var edges = {};
 
-  _.each(shell, function(polygonXML, polygonIndex) {
-    var boundaries = citygmlBoundaries(polygonXML);
+  // REMOVED: CityGML-specific processing should be done externally
+  // _.each(shell, function(polygonXML, polygonIndex) {
+  //   var boundaries = citygmlBoundaries(polygonXML);
+  //
+  //   var checkRings = boundaries.exterior.concat(boundaries.interior);
+  //   var checkRingXML;
+  //   var checkRingPoints;
+  //   var prevPoint;
+  //
+  //   _.each(checkRings, function(checkRingXML) {
+  //     checkRingPoints = citygmlPoints(checkRingXML);
 
-    var checkRings = boundaries.exterior.concat(boundaries.interior);
-    var checkRingXML;
-    var checkRingPoints;
+  _.each(polygons, function(polygon, polygonIndex) {
     var prevPoint;
-
-    _.each(checkRings, function(checkRingXML) {
-      checkRingPoints = citygmlPoints(checkRingXML);
-
-      _.each(checkRingPoints, function(point) {
-        if (!prevPoint) {
-          prevPoint = point;
-          return;
-        }
-
-        // Serialise edge
-        var edgeId = prevPoint.toString() + ":" + point.toString();
-
-        // First time create new edge definition, second time only add polygon
-        // index to edge
-        if (!edges[edgeId]) {
-          edges[edgeId] = [prevPoint, point, [polygonIndex]];
-        } else {
-          edges[edgeId][2].push(polygonIndex);
-        }
-
+    _.each(polygon, function(point) {
+      if (!prevPoint) {
         prevPoint = point;
-      });
+        return;
+      }
+
+      // Serialise edge
+      var edgeId = prevPoint.toString() + ":" + point.toString();
+
+      // First time create new edge definition, second time only add polygon
+      // index to edge
+      if (!edges[edgeId]) {
+        edges[edgeId] = [prevPoint, point, [polygonIndex]];
+      } else {
+        edges[edgeId][2].push(polygonIndex);
+      }
+
+      prevPoint = point;
     });
   });
+
+  //   });
+  // });
 
   return edges;
 };
