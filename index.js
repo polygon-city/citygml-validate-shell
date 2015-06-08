@@ -9,6 +9,7 @@
 
 var _ = require("lodash");
 var async = require("async");
+var sylvester = require("sylvester");
 var polygonjs = require("polygon");
 
 var citygmlBoundaries = require("citygml-boundaries");
@@ -449,8 +450,10 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     // Pick outer polygon with the largest absolute Z normal as this will always     // be on top after the previous filters in a valid solid (has the shallowest
     // angle) and will filter out overhanging polygons
     _.each(topPolygons, function(oPolygon, oPolygonIndex) {
+      // Skip first point to avoid normal inconsistancies with polygons that
+      // have identical start and end points.
       var normal = normalUnit(oPolygon[0][0], oPolygon[0][1], oPolygon[0][2]);
-      var absNormalZ = Math.abs(normal[2]);
+      var absNormalZ = Math.abs(normal.e(3));
 
       if (maxNormalZ === undefined || absNormalZ > maxNormalZ) {
         maxNormalZ = absNormalZ;
@@ -466,7 +469,7 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
 
     // If normal has a negative Z then fail as shallowest (top-most) polygon
     // will always have a positive Z normal
-    if (outerPolygonNormal[2] < 0) {
+    if (outerPolygonNormal.e(3) < 0) {
       var insideOut = true;
 
       var indexes = [];
@@ -727,27 +730,15 @@ var bfs = function(v, adjlist, visited) {
   return current_group;
 };
 
-// TODO: Place into own module as this is used in polygons-to-obj too
-// TODO: Double-check that this is returning correct normal (not reversed)
 var normalUnit = function(p1, p2, p3) {
-  // Clone original points so we don't modify originals
-  var cp1 = _.clone(p1);
-  var cp2 = _.clone(p2);
-  var cp3 = _.clone(p3);
+  var v1 = $V(p1);
+  var v2 = $V(p2);
+  var v3 = $V(p3);
 
-  // http://stackoverflow.com/questions/8135260/normal-vector-to-a-plane
-  var nx = (cp2[1] - cp1[1])*(cp3[2] - cp1[2]) - (cp2[2] - cp1[2])*(cp3[1] - cp1[1]);
-  var ny = (cp2[2] - cp1[2])*(cp3[0] - cp1[0]) - (cp2[0] - cp1[0])*(cp3[2] - cp1[2]);
-  var nz = (cp2[0] - cp1[0])*(cp3[1] - cp1[1]) - (cp2[1] - cp1[1])*(cp3[0] - cp1[0]);
+  var a = v2.subtract(v1);
+  var b = v3.subtract(v1);
 
-  // Vector length
-  // http://www.lighthouse3d.com/opengl/terrain/index.php3?normals
-  var length = Math.sqrt(nx*nx + ny*ny + nz*nz);
-
-  // Return normals in unit length
-  var normals = [nx/length, ny/length, nz/length];
-
-  return normals;
+  return a.cross(b).toUnitVector();
 };
 
 // From: https://github.com/mrdoob/three.js/blob/master/src/math/Plane.js
