@@ -399,6 +399,11 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
       polygonPoints.push(exteriorPoints);
     });
 
+    if (polygonPoints.length === 0) {
+      callback(new Error("GE_S_POLYGON_WRONG_ORIENTATION: No polygons found"));
+      return;
+    }
+
     // Polygons that share the top-most Z position
     var topPolygons = {};
     var maxZ;
@@ -462,6 +467,11 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
         outerPolygonNormal = normal;
       }
     });
+
+    if (!outerPolygon) {
+      callback(new Error("GE_S_POLYGON_WRONG_ORIENTATION: Outer polygon not found"));
+      return;
+    }
 
     var checkPoints2d = points3dto2d(outerPolygon[0], false);
     var checkPolygon = polygonjs(checkPoints2d.points);
