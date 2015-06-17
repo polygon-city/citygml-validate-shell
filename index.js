@@ -367,6 +367,9 @@ var GE_S_SELF_INTERSECTION = function(shell) {
 // Note: Wising depends entirely on which side you want to be viewing the
 // polygon from.
 //
+// Note: This overlooks issues with collinear points (which should fail before
+// anyway)
+//
 // IMPL: Find a polygon we know is facing up/down based on horizontal plane (eg.
 // top-most must have normal angled above horizontal, bottom-most below). Seems
 // impossible to have a valid shell with a "top" face that points at or below
@@ -455,9 +458,34 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     // Pick outer polygon with the largest absolute Z normal as this will always     // be on top after the previous filters in a valid solid (has the shallowest
     // angle) and will filter out overhanging polygons
     _.each(topPolygons, function(oPolygon, oPolygonIndex) {
+      var p0, p1, p2;
+      var normal;
+      var collinearThreshold = 0.01;
+
+      // Find first sequence of points that aren't collinear
+      _.each(oPolygon[0], function(point, pIndex) {
+        // Exit if no more points are available
+        if (pIndex === oPolygon[0].length - 2) {
+          return false;
+        }
+
+        p0 = $V(point);
+        p1 = $V(oPolygon[0][pIndex+1]);
+        p2 = $V(oPolygon[0][pIndex+2]);
+
+        // Colinear or near-colinear?
+        var cross = p0.subtract(p1).cross(p0.subtract(p2));
+
+        // Exit if non-collinear points are found
+        if (Math.abs(cross.e(1)) > collinearThreshold || Math.abs(cross.e(2)) > collinearThreshold || Math.abs(cross.e(3)) > collinearThreshold) {
+          normal = normalUnit(p0, p1, p2);
+          return false;
+        }
+      });
+
       // Skip first point to avoid normal inconsistancies with polygons that
       // have identical start and end points.
-      var normal = normalUnit(oPolygon[0][0], oPolygon[0][1], oPolygon[0][2]);
+      // var normal = normalUnit(oPolygon[0][0], oPolygon[0][1], oPolygon[0][2]);
       var absNormalZ = Math.abs(normal.e(3));
 
       if (maxNormalZ === undefined || absNormalZ > maxNormalZ) {
