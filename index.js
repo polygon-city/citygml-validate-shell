@@ -488,7 +488,18 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
       // var normal = normalUnit(oPolygon[0][0], oPolygon[0][1], oPolygon[0][2]);
       var absNormalZ = Math.abs(normal.e(3));
 
-      if (maxNormalZ === undefined || absNormalZ > maxNormalZ) {
+      if (maxNormalZ === undefined || absNormalZ >= maxNormalZ) {
+        // It's possible for multiple polygons to share both the same top vertex
+        // and have the same absolute Z normal. This is likely because one of
+        // the polygons is invalid (eg. not planar) and so the polygon with the
+        // most vertices shared with the top vertex is chosen.
+        if (absNormalZ >= maxNormalZ) {
+          // Compare average Z values to pick top-most polygon
+          if (topPolygons[oPolygonIndex][1] < topPolygons[outerPolygonIndex]) {
+            return;
+          }
+        }
+
         maxNormalZ = absNormalZ;
         outerPolygon = oPolygon;
         outerPolygonIndex = Number(oPolygonIndex);
@@ -606,11 +617,6 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
           }
         }
       });
-
-      if (flipped.length === 0) {
-        callback(null);
-        return;
-      }
     }
 
     // If outer polygon is flipped then everything in the flipped array is
