@@ -483,6 +483,11 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
         }
       });
 
+      if (typeof(normal) === "undefined") {
+        callback(new Error("GE_S_POLYGON_WRONG_ORIENTATION: Normal undefined"));
+        return;
+      }
+
       // Skip first point to avoid normal inconsistancies with polygons that
       // have identical start and end points.
       // var normal = normalUnit(oPolygon[0][0], oPolygon[0][1], oPolygon[0][2]);
