@@ -460,18 +460,17 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
     _.each(topPolygons, function(oPolygon, oPolygonIndex) {
       var p0, p1, p2;
       var normal;
-      var collinearThreshold = 0.01;
+      var collinearThreshold = 0.05;
 
-      // Find first sequence of points that aren't collinear
-      _.each(oPolygon[0], function(point, pIndex) {
-        // Exit if no more points are available
-        if (pIndex === oPolygon[0].length - 2) {
-          return false;
-        }
-
-        p0 = $V(point);
-        p1 = $V(oPolygon[0][pIndex+1]);
-        p2 = $V(oPolygon[0][pIndex+2]);
+      // Try and pick points that will give the best non-collinear result
+      // Otherwise, fall back to looping over all points
+      //
+      // TODO: De-dupe this and the other checks after this
+      if (oPolygon[0].length > 5) {
+        var offset = Math.floor(oPolygon[0].length / 3);
+        p0 = $V(oPolygon[0][0]);
+        p1 = $V(oPolygon[0][offset]);
+        p2 = $V(oPolygon[0][offset*2]);
 
         // Colinear or near-colinear?
         var cross = p0.subtract(p1).cross(p0.subtract(p2));
@@ -479,9 +478,38 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
         // Exit if non-collinear points are found
         if (Math.abs(cross.e(1)) > collinearThreshold || Math.abs(cross.e(2)) > collinearThreshold || Math.abs(cross.e(3)) > collinearThreshold) {
           normal = normalUnit(p0, p1, p2);
-          return false;
         }
-      });
+      }
+
+      if (!normal) {
+        var firstPoint;
+
+        // Find first sequence of points that aren't collinear
+        _.each(oPolygon[0], function(point, pIndex) {
+          // Exit if no more points are available
+          if (pIndex === oPolygon[0].length - 1) {
+            return false;
+          }
+
+          if (pIndex === 0 && !firstPoint) {
+            firstPoint = $V(point);
+            return;
+          }
+
+          p0 = firstPoint;
+          p1 = $V(point);
+          p2 = $V(oPolygon[0][pIndex+1]);
+
+          // Colinear or near-colinear?
+          var cross = p0.subtract(p1).cross(p0.subtract(p2));
+
+          // Exit if non-collinear points are found
+          if (Math.abs(cross.e(1)) > collinearThreshold || Math.abs(cross.e(2)) > collinearThreshold || Math.abs(cross.e(3)) > collinearThreshold) {
+            normal = normalUnit(p0, p1, p2);
+            return false;
+          }
+        });
+      }
 
       // Skip polygon if normal can't be found
       if (normal === undefined) {
@@ -500,7 +528,7 @@ var GE_S_POLYGON_WRONG_ORIENTATION = function(shell) {
         // most vertices shared with the top vertex is chosen.
         if (absNormalZ >= maxNormalZ) {
           // Compare average Z values to pick top-most polygon
-          if (topPolygons[oPolygonIndex][1] < topPolygons[outerPolygonIndex]) {
+          if (topPolygons[oPolygonIndex][1] < topPolygons[outerPolygonIndex][1]) {
             return;
           }
         }
